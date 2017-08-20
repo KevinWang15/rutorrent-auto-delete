@@ -1,0 +1,20 @@
+{
+  "name": "pt-rss-freeleech-filter-proxy",
+  "version": "0.0.1",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "elementtree": "^0.1.7",
+    "express": "^4.15.4",
+    "promise-queue": "^2.2.3",
+    "request": "^2.81.0",
+    "url-join": "^2.0.2"
+  }
+}
