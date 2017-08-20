@@ -82,9 +82,8 @@ function doOperation() {
                                             body: deleteTorrentXmlCommandTemplate(item.hash),
                                             headers: { 'Content-Type': 'text/xml; charset=UTF-8' },
                                         },
-                                        function (error, response, body) {
-                                            console.log(error);
-                                            console.log(body);
+                                        function (error) {
+                                            if (error) console.error(JSON.stringify(error));
                                             queue_res();
                                         }).auth(config.basic_auth_username, config.basic_auth_password);
                                 });
