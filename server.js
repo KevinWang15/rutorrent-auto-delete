@@ -92,7 +92,7 @@ function doOperation() {
                         });
                     }).auth(config.basic_auth_username, config.basic_auth_password);
             } else {
-                console.log("Current ratio is " + ratio.toFixed(2) + ", you can still add " + ((result.free - result.total * config.ratio) / 1024 / 1024 / 1024).toFixed(1) + " GB of data");
+                console.log("Current ratio is " + ratio.toFixed(2) + ", you can still add " + ((result.total * config.ratio - (result.total - result.free)) / 1024 / 1024 / 1024).toFixed(1) + " GB of data");
             }
         } catch (error) {
             console.warn(JSON.stringify(error));
