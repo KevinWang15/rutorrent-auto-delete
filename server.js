@@ -35,6 +35,8 @@ function doOperation() {
                     function (error, response, body) {
                         let raw_data = JSON.parse(body).t;
                         let data = [];
+                        let fulfilledBytes = 0;
+                        let toDelete = [];
                         let age = 0;
                         let totalSize = 0;
                         let totalDoneSize = 0;
@@ -42,8 +44,21 @@ function doOperation() {
                             if (!raw_data.hasOwnProperty(key)) continue;
                             totalSize += +raw_data[key][SIZE_ARRAY_INDEX];
                             totalDoneSize += +raw_data[key][DONE_SIZE_ARRAY_INDEX];
+
                             // exempt downloading torrents
                             if (+raw_data[key][DOWNRATE_ARRAY_INDEX]) continue;
+
+                            // delete torrents with very high share ratio first, according to config file
+                            if (config.maxShareRatio && +raw_data[key][RATIO_ARRAY_INDEX] > config.maxShareRatio * 1000) {
+                                fulfilledBytes += +raw_data[key][SIZE_ARRAY_INDEX];
+                                toDelete.push({
+                                    hash: key,
+                                    name: raw_data[key][NAME_ARRAY_INDEX],
+                                    size: +raw_data[key][SIZE_ARRAY_INDEX],
+                                });
+                                continue;
+                            }
+
                             data.push({
                                 // old torrents come first
                                 age: age--,
@@ -65,9 +80,7 @@ function doOperation() {
 
                         console.log("Total size of torrents " + (totalDoneSize / 1024 / 1024 / 1024).toFixed(1) + " GB" + " / " + (totalSize / 1024 / 1024 / 1024).toFixed(1) + " GB");
 
-                        let fulfilledBytes = 0;
                         let i = 0;
-                        let toDelete = [];
                         while (fulfilledBytes < neededBytes) {
                             fulfilledBytes += data[i].size;
                             toDelete.push({
