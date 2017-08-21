@@ -12,7 +12,8 @@ let queue = new Queue(maxConcurrentHttpRequests);
 let deleteTorrentXmlCommandTemplate = require('./xml-command-template');
 
 // refer to https://github.com/Novik/ruTorrent/blob/master/plugins/httprpc/action.php#L91-L97
-const NAME_ARRAY_INDEX = 4, SIZE_ARRAY_INDEX = 5, RATIO_ARRAY_INDEX = 10, UPRATE_ARRAY_INDEX = 11,
+const NAME_ARRAY_INDEX = 4, SIZE_ARRAY_INDEX = 5, DONE_SIZE_ARRAY_INDEX = 8, RATIO_ARRAY_INDEX = 10,
+    UPRATE_ARRAY_INDEX = 11,
     DOWNRATE_ARRAY_INDEX = 12;
 
 function doOperation() {
@@ -28,16 +29,19 @@ function doOperation() {
             let neededBytes = (result.total - result.free) - result.total * config.ratio;
             if (ratio > config.ratio) {
                 // need to free up space
-                console.log("Current ratio is " + ratio.toFixed(2) + " need to free up " + (neededBytes / 1024 / 1024 / 1024).toFixed(1) + " GB");
+                console.log("Current ratio is " + ratio.toFixed(2) + " (" + ((result.total - result.free) / 1024 / 1024 / 1024).toFixed(1) + " GB" + " / " + (result.total / 1024 / 1024 / 1024).toFixed(1) + " GB" + ") need to free up " + (neededBytes / 1024 / 1024 / 1024).toFixed(1) + " GB");
                 request.post(urlJoin(config.url, 'plugins/httprpc/action.php'),
                     { form: { mode: "list" } },
                     function (error, response, body) {
                         let raw_data = JSON.parse(body).t;
                         let data = [];
                         let age = 0;
+                        let totalSize = 0;
+                        let totalDoneSize = 0;
                         for (let key in raw_data) {
                             if (!raw_data.hasOwnProperty(key)) continue;
-
+                            totalSize += +raw_data[key][SIZE_ARRAY_INDEX];
+                            totalDoneSize += +raw_data[key][DONE_SIZE_ARRAY_INDEX];
                             // exempt downloading torrents
                             if (+raw_data[key][DOWNRATE_ARRAY_INDEX]) continue;
                             data.push({
@@ -58,6 +62,8 @@ function doOperation() {
                                 return b.age - a.age;
                             }
                         });
+
+                        console.log("Total size of torrents " + (totalDoneSize / 1024 / 1024 / 1024).toFixed(1) + " GB" + " / " + (totalSize / 1024 / 1024 / 1024).toFixed(1) + " GB");
 
                         let fulfilledBytes = 0;
                         let i = 0;
@@ -91,7 +97,7 @@ function doOperation() {
                         });
                     }).auth(config.basic_auth_username, config.basic_auth_password);
             } else {
-                console.log("Current ratio is " + ratio.toFixed(2) + ", you can still add " + ((result.total * config.ratio - (result.total - result.free)) / 1024 / 1024 / 1024).toFixed(1) + " GB of data");
+                console.log("Current ratio is " + ratio.toFixed(2) + " (" + ((result.total - result.free) / 1024 / 1024 / 1024).toFixed(1) + " GB" + " / " + (result.total / 1024 / 1024 / 1024).toFixed(1) + " GB" + "), you can still add " + ((result.total * config.ratio - (result.total - result.free)) / 1024 / 1024 / 1024).toFixed(1) + " GB of data");
             }
         } catch (error) {
             console.warn(JSON.stringify(error));
