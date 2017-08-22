@@ -33,13 +33,19 @@ function doOperation() {
                 request.post(urlJoin(config.url, 'plugins/httprpc/action.php'),
                     { form: { mode: "list" } },
                     function (error, response, body) {
-                        let raw_data = JSON.parse(body).t;
+                        let raw_data;
                         let data = [];
                         let fulfilledBytes = 0;
                         let toDelete = [];
                         let age = 0;
                         let totalSize = 0;
                         let totalDoneSize = 0;
+                        try {
+                            raw_data = JSON.parse(body).t;
+                        } catch (e) {
+                            console.log(e);
+                            return;
+                        }
                         for (let key in raw_data) {
                             if (!raw_data.hasOwnProperty(key)) continue;
                             totalSize += +raw_data[key][SIZE_ARRAY_INDEX];
