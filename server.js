@@ -12,9 +12,13 @@ let queue = new Queue(maxConcurrentHttpRequests);
 let deleteTorrentXmlCommandTemplate = require('./xml-command-template');
 
 // refer to https://github.com/Novik/ruTorrent/blob/master/plugins/httprpc/action.php#L91-L97
-const NAME_ARRAY_INDEX = 4, SIZE_ARRAY_INDEX = 5, DONE_SIZE_ARRAY_INDEX = 8, RATIO_ARRAY_INDEX = 10,
+const NAME_ARRAY_INDEX = 4,
+    SIZE_ARRAY_INDEX = 5,
+    DONE_SIZE_ARRAY_INDEX = 8,
+    RATIO_ARRAY_INDEX = 10,
     UPRATE_ARRAY_INDEX = 11,
-    DOWNRATE_ARRAY_INDEX = 12;
+    DOWNRATE_ARRAY_INDEX = 12,
+    LABEL_ARRAY_INDEX = 14;
 
 function doOperation() {
     let statsUrl = urlJoin(config.url, 'plugins/diskspace/action.php');
@@ -50,6 +54,9 @@ function doOperation() {
                             if (!raw_data.hasOwnProperty(key)) continue;
                             totalSize += +raw_data[key][SIZE_ARRAY_INDEX];
                             totalDoneSize += +raw_data[key][DONE_SIZE_ARRAY_INDEX];
+
+                            // exempt torrents with keepTag
+                            if (config.keepTag && raw_data[key][LABEL_ARRAY_INDEX] === config.keepTag) continue;
 
                             // exempt downloading torrents
                             if (+raw_data[key][DOWNRATE_ARRAY_INDEX]) continue;
@@ -88,6 +95,10 @@ function doOperation() {
 
                         let i = 0;
                         while (fulfilledBytes < neededBytes) {
+                            if (i >= data.length) {
+                                console.log("\n!!! Error: cannot free up more than " + (fulfilledBytes / 1024 / 1024 / 1024).toFixed(1) + " GB !!!\n");
+                                break;
+                            }
                             fulfilledBytes += data[i].size;
                             toDelete.push({
                                 hash: data[i].hash,
