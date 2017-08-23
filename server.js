@@ -15,6 +15,7 @@ let deleteTorrentXmlCommandTemplate = require('./xml-command-template');
 const NAME_ARRAY_INDEX = 4,
     SIZE_ARRAY_INDEX = 5,
     DONE_SIZE_ARRAY_INDEX = 8,
+    UP_TOTAL_ARRAY_INDEX = 9,
     RATIO_ARRAY_INDEX = 10,
     UPRATE_ARRAY_INDEX = 11,
     DOWNRATE_ARRAY_INDEX = 12,
@@ -44,6 +45,15 @@ function doOperation() {
                         let age = 0;
                         let totalSize = 0;
                         let totalDoneSize = 0;
+
+                        function deleteTorrent(key) {
+                            fulfilledBytes += +raw_data[key][SIZE_ARRAY_INDEX];
+                            toDelete.push({
+                                hash: key,
+                                name: raw_data[key][NAME_ARRAY_INDEX],
+                                size: +raw_data[key][SIZE_ARRAY_INDEX],
+                            });
+                        }
                         try {
                             raw_data = JSON.parse(body).t;
                         } catch (e) {
@@ -58,17 +68,24 @@ function doOperation() {
                             // exempt torrents with keepTag
                             if (config.keepTag && raw_data[key][LABEL_ARRAY_INDEX] === config.keepTag) continue;
 
-                            // exempt downloading torrents
-                            if (+raw_data[key][DOWNRATE_ARRAY_INDEX]) continue;
+                            // downloading torrents
+                            if (+raw_data[key][DOWNRATE_ARRAY_INDEX]) {
+                                if (config.maxShareRatio) {
+                                    if (raw_data[key][UP_TOTAL_ARRAY_INDEX] >= raw_data[key][SIZE_ARRAY_INDEX] * config.maxShareRatio) {
+                                        console.log("should del", raw_data[key][NAME_ARRAY_INDEX]);
+                                        deleteTorrent(key);
+                                    } else {
+                                        continue;
+                                    }
+                                } else {
+                                    continue;
+                                }
+                            }
 
+                            // non-downloading torrents
                             // delete torrents with very high share ratio first, according to config file
                             if (config.maxShareRatio && +raw_data[key][RATIO_ARRAY_INDEX] > config.maxShareRatio * 1000) {
-                                fulfilledBytes += +raw_data[key][SIZE_ARRAY_INDEX];
-                                toDelete.push({
-                                    hash: key,
-                                    name: raw_data[key][NAME_ARRAY_INDEX],
-                                    size: +raw_data[key][SIZE_ARRAY_INDEX],
-                                });
+                                deleteTorrent(key);
                                 continue;
                             }
 
