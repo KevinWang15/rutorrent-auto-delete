@@ -12,6 +12,9 @@ module.exports = {
     // (criterion: when UploadedSize >= 10 * TotalSize, affects downloading torrents too)
     maxShareRatio: 10,
 
+    // delete torrents with seed time higher than 86400 * 3 seconds
+    maxSeedTime: 86400 * 3 + /* (*/3600/*) buffer time*/,
+
     // ignore (do not delete) all torrents with tag "keep" set
     keepTag: "keep",
 
