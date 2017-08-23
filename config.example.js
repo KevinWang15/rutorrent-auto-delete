@@ -8,12 +8,16 @@ module.exports = {
     // delete old torrents and free up space when used space exceeds the following ratio
     ratio: 0.8,
 
-    // delete all torrents with share ratio more than the following first, when freeing up space. Set to 0 to disable
-    maxShareRatio: 0,
+    // When freeing up space, delete all torrents with a share ratio higher than 10 first (set to 0 to disable)
+    // (criterion: when UploadedSize >= 10 * TotalSize, affects downloading torrents too)
+    maxShareRatio: 10,
+
+    // ignore (do not delete) all torrents with tag "keep" set
+    keepTag: "keep",
 
     // leave empty if not using basic auth
-    basic_auth_username: "",
-    basic_auth_password: "",
+    basicAuthUsername: "",
+    basicAuthPassword: "",
 
-    maxConcurrentHttpRequests: 8
+    maxConcurrentHttpRequests: 8,
 };

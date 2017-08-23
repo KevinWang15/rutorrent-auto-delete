@@ -110,18 +110,18 @@ function doOperation() {
                                         function (error) {
                                             if (error) console.error(JSON.stringify(error));
                                             queue_res();
-                                        }).auth(config.basic_auth_username, config.basic_auth_password);
+                                        }).auth(config.basicAuthUsername, config.basicAuthPassword);
                                 });
                             });
                         });
-                    }).auth(config.basic_auth_username, config.basic_auth_password);
+                    }).auth(config.basicAuthUsername, config.basicAuthPassword);
             } else {
                 console.log("Current ratio is " + ratio.toFixed(2) + " (" + ((result.total - result.free) / 1024 / 1024 / 1024).toFixed(1) + " GB" + " / " + (result.total / 1024 / 1024 / 1024).toFixed(1) + " GB" + "), you can still add " + ((result.total * config.ratio - (result.total - result.free)) / 1024 / 1024 / 1024).toFixed(1) + " GB of data");
             }
         } catch (error) {
             console.warn(JSON.stringify(error));
         }
-    }).auth(config.basic_auth_username, config.basic_auth_password);
+    }).auth(config.basicAuthUsername, config.basicAuthPassword);
 }
 
 doOperation();
