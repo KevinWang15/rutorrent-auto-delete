@@ -124,5 +124,7 @@ function doOperation() {
     }).auth(config.basicAuthUsername, config.basicAuthPassword);
 }
 
+// support self-signed ssl certs
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 doOperation();
 setInterval(doOperation, config.interval * 1000);
