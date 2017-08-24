@@ -12,14 +12,16 @@ let queue = new Queue(maxConcurrentHttpRequests);
 let deleteTorrentXmlCommandTemplate = require('./xml-command-template');
 
 // refer to https://github.com/Novik/ruTorrent/blob/master/plugins/httprpc/action.php#L91-L97
-const NAME_ARRAY_INDEX = 4,
-    SIZE_ARRAY_INDEX = 5,
-    DONE_SIZE_ARRAY_INDEX = 8,
-    UP_TOTAL_ARRAY_INDEX = 9,
-    RATIO_ARRAY_INDEX = 10,
-    UPRATE_ARRAY_INDEX = 11,
-    DOWNRATE_ARRAY_INDEX = 12,
-    LABEL_ARRAY_INDEX = 14;
+const ARRAY_INDEX = {
+    name: 4,
+    size: 5,
+    done_size: 8,
+    up_total: 9,
+    ratio: 10,
+    up_rate: 11,
+    down_rate: 12,
+    tag: 14,
+};
 
 function doOperation() {
     let statsUrl = urlJoin(config.url, 'plugins/diskspace/action.php');
@@ -53,15 +55,15 @@ function doOperation() {
                         if (config.newTorrentsTTL) {
                             let addTime = parseTime(raw_data[key][raw_data[key].length - 1]);
                             if (addTime && addTime < config.newTorrentsTTL) {
-                                console.log("Exempting new torrent: " + raw_data[key][NAME_ARRAY_INDEX] + ", which is only " + addTime + " secs old.");
+                                console.log("Exempting new torrent: " + raw_data[key][ARRAY_INDEX.name] + ", which is only " + addTime + " secs old.");
                                 return;
                             }
                         }
-                        fulfilledBytes += +raw_data[key][SIZE_ARRAY_INDEX];
+                        fulfilledBytes += +raw_data[key][ARRAY_INDEX.size];
                         toDelete.push({
                             hash: key,
-                            name: raw_data[key][NAME_ARRAY_INDEX],
-                            size: +raw_data[key][SIZE_ARRAY_INDEX],
+                            name: raw_data[key][ARRAY_INDEX.name],
+                            size: +raw_data[key][ARRAY_INDEX.size],
                         });
                     }
                     try {
@@ -72,16 +74,16 @@ function doOperation() {
                     }
                     for (let key in raw_data) {
                         if (!raw_data.hasOwnProperty(key)) continue;
-                        totalSize += +raw_data[key][SIZE_ARRAY_INDEX];
-                        totalDoneSize += +raw_data[key][DONE_SIZE_ARRAY_INDEX];
+                        totalSize += +raw_data[key][ARRAY_INDEX.size];
+                        totalDoneSize += +raw_data[key][ARRAY_INDEX.done_size];
 
                         // exempt torrents with keepTag
-                        if (config.keepTag && raw_data[key][LABEL_ARRAY_INDEX] === config.keepTag) continue;
+                        if (config.keepTag && raw_data[key][ARRAY_INDEX.tag] === config.keepTag) continue;
 
                         // downloading torrents
-                        if (+raw_data[key][DOWNRATE_ARRAY_INDEX]) {
+                        if (+raw_data[key][ARRAY_INDEX.down_rate]) {
                             if (config.maxShareRatio) {
-                                if (raw_data[key][UP_TOTAL_ARRAY_INDEX] >= raw_data[key][SIZE_ARRAY_INDEX] * config.maxShareRatio) {
+                                if (raw_data[key][ARRAY_INDEX.up_total] >= raw_data[key][ARRAY_INDEX.size] * config.maxShareRatio) {
                                     deleteTorrent(key);
                                 } else {
                                     continue;
@@ -93,7 +95,7 @@ function doOperation() {
 
                         // non-downloading torrents
                         // delete torrents with very high share ratio first, according to config file
-                        if (config.maxShareRatio && +raw_data[key][RATIO_ARRAY_INDEX] > config.maxShareRatio * 1000) {
+                        if (config.maxShareRatio && +raw_data[key][ARRAY_INDEX.ratio] > config.maxShareRatio * 1000) {
                             deleteTorrent(key);
                             continue;
                         }
@@ -102,11 +104,11 @@ function doOperation() {
                             // old torrents come first
                             age: age--,
                             hash: key,
-                            name: raw_data[key][NAME_ARRAY_INDEX],
-                            up_rate: +raw_data[key][UPRATE_ARRAY_INDEX],
-                            down_rate: +raw_data[key][DOWNRATE_ARRAY_INDEX],
-                            ratio: +raw_data[key][RATIO_ARRAY_INDEX],
-                            size: +raw_data[key][SIZE_ARRAY_INDEX],
+                            name: raw_data[key][ARRAY_INDEX.name],
+                            up_rate: +raw_data[key][ARRAY_INDEX.up_rate],
+                            down_rate: +raw_data[key][ARRAY_INDEX.down_rate],
+                            ratio: +raw_data[key][ARRAY_INDEX.ratio],
+                            size: +raw_data[key][ARRAY_INDEX.size],
                             seedTime: parseTime(raw_data[key][raw_data[key].length - 2]),
                             addTime: parseTime(raw_data[key][raw_data[key].length - 1]),
                         };
