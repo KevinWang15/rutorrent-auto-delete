@@ -1,9 +1,6 @@
-let express = require('express');
 let config = require('./config');
 let request = require('request').defaults({ 'proxy': config.proxy || null });
 let fs = require('fs');
-let et = require('elementtree');
-
 let Queue = require('promise-queue');
 let urlJoin = require('url-join');
 let maxConcurrentHttpRequests = config.maxConcurrentHttpRequests || 8;
@@ -43,47 +40,71 @@ function doOperation() {
             request.post(urlJoin(config.url, 'plugins/httprpc/action.php'),
                 { form: 'mode=list&cmd=d.custom%3Dseedingtime&cmd=d.custom%3Daddtime' },
                 function (error, response, body) {
-                    let raw_data;
-                    let data = [];
+                    let parsedData = {};
+                    let innocentTorrents = [];
                     let fulfilledBytes = 0;
                     let toDelete = [];
                     let age = 0;
                     let totalSize = 0;
                     let totalDoneSize = 0;
 
+                    // Defining util function in scope
                     function deleteTorrent(key) {
                         if (config.newTorrentsTTL) {
-                            let addTime = parseTime(raw_data[key][raw_data[key].length - 1]);
-                            if (addTime && addTime < config.newTorrentsTTL) {
-                                console.log("Exempting new torrent: " + raw_data[key][ARRAY_INDEX.name] + ", which is only " + addTime + " secs old.");
+                            if (parsedData[key].addTime && parsedData[key].addTime < config.newTorrentsTTL) {
+                                console.log("Exempting new torrent: " + parsedData[key].name + ", which is only " + parsedData[key].addTime + " secs old.");
                                 return;
                             }
                         }
-                        fulfilledBytes += +raw_data[key][ARRAY_INDEX.size];
+                        fulfilledBytes += +parsedData[key].size;
                         toDelete.push({
                             hash: key,
-                            name: raw_data[key][ARRAY_INDEX.name],
-                            size: +raw_data[key][ARRAY_INDEX.size],
+                            name: parsedData[key].name,
+                            size: parsedData[key].size,
                         });
                     }
+
+                    // Parsing Data, giving us parsedData
                     try {
-                        raw_data = JSON.parse(body).t;
+                        let raw_data = JSON.parse(body).t;
+                        for (let key in raw_data) {
+                            if (!raw_data.hasOwnProperty(key)) continue;
+                            parsedData[key] = {
+                                // old torrents come first
+                                age: age--,
+                                hash: key,
+                                name: raw_data[key][ARRAY_INDEX.name],
+                                up_rate: +raw_data[key][ARRAY_INDEX.up_rate],
+                                down_rate: +raw_data[key][ARRAY_INDEX.down_rate],
+                                ratio: +raw_data[key][ARRAY_INDEX.ratio],
+                                size: +raw_data[key][ARRAY_INDEX.size],
+                                done_size: +raw_data[key][ARRAY_INDEX.done_size],
+                                seedTime: parseTime(raw_data[key][raw_data[key].length - 2]),
+                                addTime: parseTime(raw_data[key][raw_data[key].length - 1]),
+                                tag: raw_data[key][ARRAY_INDEX.tag],
+                                up_total: raw_data[key][ARRAY_INDEX.up_total],
+                            };
+                        }
                     } catch (e) {
-                        console.log(e);
+                        console.error(e);
                         return;
                     }
-                    for (let key in raw_data) {
-                        if (!raw_data.hasOwnProperty(key)) continue;
-                        totalSize += +raw_data[key][ARRAY_INDEX.size];
-                        totalDoneSize += +raw_data[key][ARRAY_INDEX.done_size];
+
+                    // Determine which torrents to delete
+                    // ==================================================
+                    // delete guilty torrents first (those exceeding maxSeedTime/maxShareRatio)
+                    for (let key in parsedData) {
+                        if (!parsedData.hasOwnProperty(key)) continue;
+                        totalSize += +parsedData[key].size;
+                        totalDoneSize += +parsedData[key].done_size;
 
                         // exempt torrents with keepTag
-                        if (config.keepTag && raw_data[key][ARRAY_INDEX.tag] === config.keepTag) continue;
+                        if (config.keepTag && parsedData[key].tag === config.keepTag) continue;
 
                         // downloading torrents
-                        if (+raw_data[key][ARRAY_INDEX.down_rate]) {
+                        if (+parsedData[key].down_rate) {
                             if (config.maxShareRatio) {
-                                if (raw_data[key][ARRAY_INDEX.up_total] >= raw_data[key][ARRAY_INDEX.size] * config.maxShareRatio) {
+                                if (parsedData[key].up_total >= parsedData[key].size * config.maxShareRatio) {
                                     deleteTorrent(key);
                                 } else {
                                     continue;
@@ -95,32 +116,22 @@ function doOperation() {
 
                         // non-downloading torrents
                         // delete torrents with very high share ratio first, according to config file
-                        if (config.maxShareRatio && +raw_data[key][ARRAY_INDEX.ratio] > config.maxShareRatio * 1000) {
+                        if (config.maxShareRatio && +parsedData[key].ratio > config.maxShareRatio * 1000) {
                             deleteTorrent(key);
                             continue;
                         }
 
-                        let torrentData = {
-                            // old torrents come first
-                            age: age--,
-                            hash: key,
-                            name: raw_data[key][ARRAY_INDEX.name],
-                            up_rate: +raw_data[key][ARRAY_INDEX.up_rate],
-                            down_rate: +raw_data[key][ARRAY_INDEX.down_rate],
-                            ratio: +raw_data[key][ARRAY_INDEX.ratio],
-                            size: +raw_data[key][ARRAY_INDEX.size],
-                            seedTime: parseTime(raw_data[key][raw_data[key].length - 2]),
-                            addTime: parseTime(raw_data[key][raw_data[key].length - 1]),
-                        };
 
-                        if (config.maxSeedTime && torrentData.seedTime > config.maxSeedTime) {
+                        if (config.maxSeedTime && parsedData[key].seedTime > config.maxSeedTime) {
                             deleteTorrent(key);
                             continue;
                         }
 
-                        data.push(torrentData);
+                        innocentTorrents.push(parsedData[key]);
                     }
-                    data.sort((a, b) => {
+
+                    // sort innocent torrents by up_rate, then age
+                    innocentTorrents.sort((a, b) => {
                         if (a.up_rate !== b.up_rate) {
                             return a.up_rate - b.up_rate;
                         } else {
@@ -130,16 +141,19 @@ function doOperation() {
 
                     console.log("Total size of torrents " + (totalDoneSize / 1024 / 1024 / 1024).toFixed(1) + " GB" + " / " + (totalSize / 1024 / 1024 / 1024).toFixed(1) + " GB");
 
+                    // delete innocent torrents until there is enough space
                     let i = 0;
                     while (fulfilledBytes < neededBytes) {
-                        if (i >= data.length) {
+                        if (i >= innocentTorrents.length) {
                             console.log("\n!!! Error: cannot free up more than " + (fulfilledBytes / 1024 / 1024 / 1024).toFixed(1) + " GB !!!\n");
                             break;
                         }
-                        deleteTorrent(data[i].hash);
+                        deleteTorrent(innocentTorrents[i].hash);
                         i++;
                     }
                     if (!toDelete.length) return;
+
+                    // carry out the deletion
                     console.log("Deleting " + toDelete.length + " files (to free up " + (fulfilledBytes / 1024 / 1024 / 1024).toFixed(1) + " GB)");
                     toDelete.forEach((item) => {
                         queue.add(() => {

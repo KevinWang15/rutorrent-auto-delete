@@ -1,5 +1,5 @@
 {
-  "name": "pt-rss-freeleech-filter-proxy",
+  "name": "rutorrent-auto-delete",
   "version": "0.0.1",
   "description": "",
   "main": "server.js",
@@ -11,8 +11,6 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "elementtree": "^0.1.7",
-    "express": "^4.15.4",
     "promise-queue": "^2.2.3",
     "request": "^2.81.0",
     "url-join": "^2.0.2"
