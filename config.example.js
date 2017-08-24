@@ -18,6 +18,9 @@ module.exports = {
     // ignore (do not delete) all torrents with tag "keep" set
     keepTag: "keep",
 
+    // exempt newly added torrents for 300s
+    newTorrentsTTL: 300,
+
     // leave empty if not using basic auth
     basicAuthUsername: "",
     basicAuthPassword: "",

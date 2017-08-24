@@ -36,7 +36,7 @@ function doOperation() {
                 // need to free up space
                 console.log("Current ratio is " + ratio.toFixed(2) + " (" + ((result.total - result.free) / 1024 / 1024 / 1024).toFixed(1) + " GB" + " / " + (result.total / 1024 / 1024 / 1024).toFixed(1) + " GB" + ") need to free up " + (neededBytes / 1024 / 1024 / 1024).toFixed(1) + " GB");
                 request.post(urlJoin(config.url, 'plugins/httprpc/action.php'),
-                    { form: { mode: "list", cmd: 'd.custom=seedingtime' } },
+                    { form: 'mode=list&cmd=d.custom%3Dseedingtime&cmd=d.custom%3Daddtime' },
                     function (error, response, body) {
                         let raw_data;
                         let data = [];
@@ -47,6 +47,13 @@ function doOperation() {
                         let totalDoneSize = 0;
 
                         function deleteTorrent(key) {
+                            if (config.newTorrentsTTL) {
+                                let addTime = parseTime(raw_data[key][raw_data[key].length - 1]);
+                                if (addTime && addTime < config.newTorrentsTTL) {
+                                    console.log("Exempting new torrent: " + raw_data[key][NAME_ARRAY_INDEX] + ", which is only " + addTime + " secs old.");
+                                    return;
+                                }
+                            }
                             fulfilledBytes += +raw_data[key][SIZE_ARRAY_INDEX];
                             toDelete.push({
                                 hash: key,
@@ -72,7 +79,6 @@ function doOperation() {
                             if (+raw_data[key][DOWNRATE_ARRAY_INDEX]) {
                                 if (config.maxShareRatio) {
                                     if (raw_data[key][UP_TOTAL_ARRAY_INDEX] >= raw_data[key][SIZE_ARRAY_INDEX] * config.maxShareRatio) {
-                                        console.log("should del", raw_data[key][NAME_ARRAY_INDEX]);
                                         deleteTorrent(key);
                                     } else {
                                         continue;
@@ -98,7 +104,8 @@ function doOperation() {
                                 down_rate: +raw_data[key][DOWNRATE_ARRAY_INDEX],
                                 ratio: +raw_data[key][RATIO_ARRAY_INDEX],
                                 size: +raw_data[key][SIZE_ARRAY_INDEX],
-                                seedTime: parseSeedTime(raw_data[key][raw_data[key].length - 1]),
+                                seedTime: parseTime(raw_data[key][raw_data[key].length - 2]),
+                                addTime: parseTime(raw_data[key][raw_data[key].length - 1]),
                             };
 
                             if (config.maxSeedTime && torrentData.seedTime > config.maxSeedTime) {
@@ -124,12 +131,7 @@ function doOperation() {
                                 console.log("\n!!! Error: cannot free up more than " + (fulfilledBytes / 1024 / 1024 / 1024).toFixed(1) + " GB !!!\n");
                                 break;
                             }
-                            fulfilledBytes += data[i].size;
-                            toDelete.push({
-                                hash: data[i].hash,
-                                name: data[i].name,
-                                size: data[i].size,
-                            });
+                            deleteTorrent(data[i].hash);
                             i++;
                         }
                         console.log("Deleting " + toDelete.length + " files (to free up " + (fulfilledBytes / 1024 / 1024 / 1024).toFixed(1) + " GB)");
@@ -165,7 +167,7 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 doOperation();
 setInterval(doOperation, config.interval * 1000);
 
-function parseSeedTime(seedTime) {
+function parseTime(seedTime) {
     seedTime = seedTime.replace(/\s/g, '');
     if (!seedTime) return 0;
     return Math.floor(+new Date() / 1000) - seedTime;
