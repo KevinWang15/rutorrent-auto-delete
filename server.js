@@ -68,7 +68,7 @@ function doOperation() {
                     try {
                         let raw_data = JSON.parse(body).t;
                         for (let key in raw_data) {
-                            if (!raw_data.hasOwnProperty(key)) continue;
+                            if (!raw_data.hasOwnProperty(key) || !raw_data[key] instanceof Object || !raw_data[key].length) continue;
                             parsedData[key] = {
                                 // old torrents come first
                                 age: age--,
